@@ -1212,7 +1212,12 @@ class Worksheet
      */
     public function getCell(CellAddress|string|array $coordinate): Cell
     {
-        $cellAddress = Functions::trimSheetFromCellReference(Validations::validateCellAddress($coordinate));
+        // Fast path: local A1-style strings skip validateCellAddress + sheet-trim.
+        if (is_string($coordinate) && !str_contains($coordinate, '!')) {
+            $cellAddress = strtoupper($coordinate);
+        } else {
+            $cellAddress = Functions::trimSheetFromCellReference(Validations::validateCellAddress($coordinate));
+        }
 
         // Shortcut for increased performance for the vast majority of simple cases
         if ($this->cellCollection->has($cellAddress)) {

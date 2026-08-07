@@ -1398,23 +1398,24 @@ class Worksheet extends WriterPart
         // Highest row number
         $highestRow = $worksheet->getHighestRow();
 
-        // Loop through cells building a comma-separated list of the columns in each row
-        // This is a trade-off between the memory usage that is required for a full array of columns,
-        //      and execution speed
-        /** @var array<int, string> $cellsByRow */
+        // Group column letters by row. For the first cell seen in a row, only
+        // include the row when that cell has a style or a non-empty value
+        // (preserves historical behaviour).
+        /** @var array<int, list<string>> $cellsByRow */
         $cellsByRow = [];
         foreach ($worksheet->getCoordinates() as $coordinate) {
             [$column, $row] = Coordinate::coordinateFromString($coordinate);
+            $row = (int) $row;
             if (!isset($cellsByRow[$row])) {
                 $pCell = $worksheet->getCell("$column$row");
                 $xfi = $pCell->getXfIndex();
                 $cellValue = $pCell->getValue();
                 $writeValue = $cellValue !== '' && $cellValue !== null;
                 if (!empty($xfi) || $writeValue) {
-                    $cellsByRow[$row] = "{$column},";
+                    $cellsByRow[$row] = [$column];
                 }
             } else {
-                $cellsByRow[$row] .= "{$column},";
+                $cellsByRow[$row][] = $column;
             }
         }
 
@@ -1483,31 +1484,29 @@ class Worksheet extends WriterPart
 
                     // Write cells
                     if (isset($cellsByRow[$currentRow])) {
-                        // We have a comma-separated list of column names (with a trailing entry); split to an array
-                        $columnsInRow = explode(',', $cellsByRow[$currentRow]);
-                        array_pop($columnsInRow);
-                        foreach ($columnsInRow as $column) {
-                            // Write cell
+                        foreach ($cellsByRow[$currentRow] as $column) {
                             $coord = "$column$currentRow";
-                            if ($worksheet->getCell($coord)->getIgnoredErrors()->getNumberStoredAsText()) {
+                            $pCell = $worksheet->getCell($coord);
+                            $ignoredErrors = $pCell->getIgnoredErrors();
+                            if ($ignoredErrors->getNumberStoredAsText()) {
                                 $this->numberStoredAsText .= " $coord";
                             }
-                            if ($worksheet->getCell($coord)->getIgnoredErrors()->getFormula()) {
+                            if ($ignoredErrors->getFormula()) {
                                 $this->formula .= " $coord";
                             }
-                            if ($worksheet->getCell($coord)->getIgnoredErrors()->getFormulaRange()) {
+                            if ($ignoredErrors->getFormulaRange()) {
                                 $this->formulaRange .= " $coord";
                             }
-                            if ($worksheet->getCell($coord)->getIgnoredErrors()->getTwoDigitTextYear()) {
+                            if ($ignoredErrors->getTwoDigitTextYear()) {
                                 $this->twoDigitTextYear .= " $coord";
                             }
-                            if ($worksheet->getCell($coord)->getIgnoredErrors()->getEvalError()) {
+                            if ($ignoredErrors->getEvalError()) {
                                 $this->evalError .= " $coord";
                             }
-                            if ($worksheet->getCell($coord)->getIgnoredErrors()->getMisleadingFormat()) {
+                            if ($ignoredErrors->getMisleadingFormat()) {
                                 $this->misleadingFormat .= " $coord";
                             }
-                            $this->writeCell($objWriter, $worksheet, $coord, $aFlippedStringTable);
+                            $this->writeCell($objWriter, $worksheet, $coord, $aFlippedStringTable, $pCell);
                         }
                     }
 
@@ -1709,10 +1708,10 @@ class Worksheet extends WriterPart
      * @param string $cellAddress Cell Address
      * @param string[] $flippedStringTable String table (flipped), for faster index searching
      */
-    private function writeCell(XMLWriter $objWriter, PhpspreadsheetWorksheet $worksheet, string $cellAddress, array $flippedStringTable): void
+    private function writeCell(XMLWriter $objWriter, PhpspreadsheetWorksheet $worksheet, string $cellAddress, array $flippedStringTable, ?Cell $pCell = null): void
     {
         // Cell
-        $pCell = $worksheet->getCell($cellAddress);
+        $pCell ??= $worksheet->getCell($cellAddress);
         $xfi = $pCell->getXfIndex();
         $cellValue = $pCell->getValue();
         $cellValueString = $pCell->getValueString();
