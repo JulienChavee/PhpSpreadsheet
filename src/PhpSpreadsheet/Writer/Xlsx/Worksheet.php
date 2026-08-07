@@ -1398,24 +1398,23 @@ class Worksheet extends WriterPart
         // Highest row number
         $highestRow = $worksheet->getHighestRow();
 
-        // Group column letters by row. For the first cell seen in a row, only
-        // include the row when that cell has a style or a non-empty value
-        // (preserves historical behaviour).
-        /** @var array<int, list<string>> $cellsByRow */
+        // Loop through cells building a comma-separated list of the columns in each row
+        // This is a trade-off between the memory usage that is required for a full array of columns,
+        //      and execution speed
+        /** @var array<int, string> $cellsByRow */
         $cellsByRow = [];
         foreach ($worksheet->getCoordinates() as $coordinate) {
             [$column, $row] = Coordinate::coordinateFromString($coordinate);
-            $row = (int) $row;
             if (!isset($cellsByRow[$row])) {
                 $pCell = $worksheet->getCell("$column$row");
                 $xfi = $pCell->getXfIndex();
                 $cellValue = $pCell->getValue();
                 $writeValue = $cellValue !== '' && $cellValue !== null;
                 if (!empty($xfi) || $writeValue) {
-                    $cellsByRow[$row] = [$column];
+                    $cellsByRow[$row] = "{$column},";
                 }
             } else {
-                $cellsByRow[$row][] = $column;
+                $cellsByRow[$row] .= "{$column},";
             }
         }
 
@@ -1484,7 +1483,10 @@ class Worksheet extends WriterPart
 
                     // Write cells
                     if (isset($cellsByRow[$currentRow])) {
-                        foreach ($cellsByRow[$currentRow] as $column) {
+                        // We have a comma-separated list of column names (with a trailing entry); split to an array
+                        $columnsInRow = explode(',', $cellsByRow[$currentRow]);
+                        array_pop($columnsInRow);
+                        foreach ($columnsInRow as $column) {
                             $coord = "$column$currentRow";
                             $pCell = $worksheet->getCell($coord);
                             $ignoredErrors = $pCell->getIgnoredErrors();
