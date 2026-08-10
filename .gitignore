@@ -13,3 +13,4 @@
 
 ## mkdocs output
 /site
+/bin/composer
