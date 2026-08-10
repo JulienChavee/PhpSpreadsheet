@@ -22,7 +22,7 @@ Some earlier branches remain supported and security fixes are applied to them; i
 
 ### Changed
 
-- Performance: avoid `Worksheet::getStyle()` on every `Cell::setValueExplicit()` unless quote-prefix must change; reuse a single `getCell()` per cell in Xlsx `writeSheetData` (ignored errors + write). On a dense 40k-cell populate+save microbenchmark this cut wall time by ~36%.
+- Performance: avoid `Worksheet::getStyle()` on every `Cell::setValueExplicit()` unless quote-prefix must change. On a dense 40k-cell populate+save microbenchmark (together with the Xlsx writer hot-path lookup reduction from [PR #4935](https://github.com/PHPOffice/PhpSpreadsheet/pull/4935)) this cut wall time by ~36%.
 
 ### Moved
 
